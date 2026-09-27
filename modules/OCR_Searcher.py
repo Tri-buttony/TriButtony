@@ -22,10 +22,11 @@ from config import (
     CROPPER_TRESHOLD, 
     MAX_CANDIDATES, 
     TEMPERATURE, 
-    TOP_P
+    TOP_P,
+    SEARCH_SCORE_TRESHOLD
 )
 
-def _llm_call(client, system_prompt=None, user_prompt=None, image_b64=None):
+def _llm_call(client, system_prompt="Ты ополезный помощьник и твечаешь кратко и по делу", user_prompt="Привет", image_b64=None):
 
     messages=[
             {
@@ -71,7 +72,7 @@ TOP_K = TOP_K_SEARCH
 client = OpenAI(base_url=LOCAL_LLM_PATH, api_key="none")
 
 try:
-    ans = _llm_call(client, "Привет")
+    ans = _llm_call(client, user_prompt="Привет")
 except Exception as e:
     print("Тестовый запрос к LLM не удался. Проверьде доступность модели")
     raise(e)
@@ -103,10 +104,12 @@ def search_by_ocr(images: list[str]):
 
         print("LLM извлекла")
         print(ocr_raw)
-        
+        ocr_json = ocr_raw.replace("json", "").replace("```", "")
+
+        print(ocr_json)
         # 4. Парсим ответ
         try:
-            ocr_data = OCRData(**json.loads(ocr_raw))
+            ocr_data = OCRData(**json.loads(ocr_json))
         except Exception as e:
             print(f"Ошибка в json для {image_path}: {e}")
             continue  # Пропускаем итерацию, чтобы избежать NameError на шаге поиска

@@ -131,7 +131,7 @@ class OpenRouterInference:
             **kwargs,
         )
 
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message.content#.strip()
 
 
 # ========== Пример использования ==========

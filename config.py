@@ -3,9 +3,10 @@ CROPPER_TRESHOLD = 0.7
 
 MAX_CANDIDATES = 30
 TOP_K_SEARCH = 5
-SEARCH_SCORE_TRESHOLD = 0.6
+SEARCH_SCORE_TRESHOLD = 0.5
 
 LOCAL_LLM_PATH = "http://localhost:8000/v1"
+LLM_PATH = r'C:\Users\drand\.lmstudio\models\ggml-org\LightOnOCR-1B-1025-GGUF\LightOnOCR-1B-1025-Q8_0.gguf'
 # Можно вынести в другой файл и менять не залезая в код
 SYSTEM_PROMPT = (
                """ Ты — высокоточный движок оптического распознавания символов (OCR). 
