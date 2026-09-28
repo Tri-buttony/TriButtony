@@ -1,0 +1,10 @@
+torch
+transformers
+Pillow
+numpy
+qdrant-client
+requests
+beautifulsoup4
+imagehash
+ultralytics
+opencv-python
