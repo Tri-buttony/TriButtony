@@ -40,32 +40,32 @@ class ImageVectorDB:
         else:
             print(f"Коллекция '{self.collection_name}' уже существует.")
 
-    def upsert_images(self, image_names: List[str], vectors: List[List[float]]) -> bool:
-        """
-        Добавляет или обновляет вектора и имена изображений в Qdrant.
+    # def upsert_images(self, image_names: List[str], vectors: List[List[float]]) -> bool:
+    #     """
+    #     Добавляет или обновляет вектора и имена изображений в Qdrant.
         
-        :param image_names: Список строк с именами/путями к изображениям.
-        :param vectors: Список векторов (списков float), соответствующих изображениям.
-        :return: True при успешном добавлении.
-        """
-        if len(image_names) != len(vectors):
-            raise ValueError("Количество имен изображений и векторов должно совпадать.")
+    #     :param image_names: Список строк с именами/путями к изображениям.
+    #     :param vectors: Список векторов (списков float), соответствующих изображениям.
+    #     :return: True при успешном добавлении.
+    #     """
+    #     if len(image_names) != len(vectors):
+    #         raise ValueError("Количество имен изображений и векторов должно совпадать.")
 
-        points = [
-            models.PointStruct(
-                id=str(uuid.uuid4()), # В реальном проекте лучше использовать хэш имени или UUID
-                vector=vector,
-                payload={"image_name": name}
-            )
-            for idx, (name, vector) in enumerate(zip(image_names, vectors))
-        ]
+    #     points = [
+    #         models.PointStruct(
+    #             id=str(uuid.uuid4()), # В реальном проекте лучше использовать хэш имени или UUID
+    #             vector=vector,
+    #             payload={"image_name": name}
+    #         )
+    #         for idx, (name, vector) in enumerate(zip(image_names, vectors))
+    #     ]
 
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=points,
-            wait=True
-        )
-        return True
+    #     self.client.upsert(
+    #         collection_name=self.collection_name,
+    #         points=points,
+    #         wait=True
+    #     )
+    #     return True
 
     def search_similar(
         self, 
@@ -88,28 +88,39 @@ class ImageVectorDB:
         
         # results.points содержит список точек
         return [
-            {"image_name": hit.payload["image_name"], "score": hit.score}
+            {"slug": hit.payload["slug"], "score": hit.score}
             for hit in results.points  # <-- ИЗМЕНЕНО: results.points
         ]
-    # def search_similar(
-    #     self, 
-    #     query_vector: List[float], 
-    #     limit: int = 5
-    # ) -> List[Dict[str, Any]]:
-    #     """
-    #     Ищет наиболее похожие изображения по заданному вектору.
         
-    #     :param query_vector: Вектор запроса.
-    #     :param limit: Количество возвращаемых результатов.
-    #     :return: Список словарей с именем изображения и оценкой сходства (score).
-    #     """
-    #     results = self.client.search(
-    #         collection_name=self.collection_name,
-    #         query_vector=query_vector,
-    #         limit=limit
-    #     )
+    def get_all_vectors_and_metadata(self, batch_size: int = 1000) -> List[Dict[str, Any]]:
+        """
+        Извлекает все векторы и метаданные из коллекции.
+        :param batch_size: Количество точек за один запрос (пагинация).
+        :return: Список словарей с id, image_name и vector.
+        """
+        all_points = []
+        offset = None
         
-    #     return [
-    #         {"image_name": hit.payload["image_name"], "score": hit.score}
-    #         for hit in results
-    #     ]
+        while True:
+            points, offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=batch_size,
+                with_vectors=True,
+                with_payload=True,
+                offset=offset
+            )
+            
+            all_points.extend([
+                {
+                    "id": point.id,
+                    "slug": point.payload.get("slug") if point.payload else None,
+                    "vector": point.vector,
+                    "image_url": point.payload.get("image_url") if point.payload else None,
+                }
+                for point in points
+            ])
+            
+            if offset is None:
+                break
+                
+        return all_points

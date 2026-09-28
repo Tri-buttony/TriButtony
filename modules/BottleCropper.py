@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Union, Tuple
 from ultralytics import YOLO
 import logging
+import io
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ class BottleCropper:
         
     def crop_image(
         self, 
-        image_path: Union[str, Path],
+        image_source: Union[str, Path, io.BytesIO, bytes],
         return_metadata: bool = True
     ) -> Union[Optional[np.ndarray], Optional[Tuple[np.ndarray, dict]]]:
         """
@@ -62,27 +63,73 @@ class BottleCropper:
             Если return_metadata=True:
                 Tuple[np.ndarray, dict] - (кроп, метаданные), или None если не найдена
         """
-        image_path = Path(image_path)
-        if not image_path.exists():
-            raise FileNotFoundError(f"Изображение не найдено: {image_path}")
+        # if isinstance(image_path, str):
+        #     image_path = Path(image_path)
+        #     if not image_path.exists():
+        #         raise FileNotFoundError(f"Изображение не найдено: {image_path}")
+        #     img = cv2.imread(str(image_path))
+        # else:
+        #     buffer = image_path
+        #     buffer.seek(0)
+        #     img_bytes = buffer.read()
+        #     img_array = np.asarray(bytearray(img_bytes), dtype=np.uint8)
+        #     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            
+        # # Проверяем, что класс бутылки определен
+        # if self.bottle_class_id is None:
+        #     logger.error("Класс бутылки не найден в модели. Укажите bottle_class_id при инициализации.")
+        #     return None
         
-        # Проверяем, что класс бутылки определен
+        # # Читаем изображение
+        # if img is None:
+        #     raise ValueError(f"Не удалось прочитать изображение: {image_path}")
+        
+        # img_h, img_w = img.shape[:2]
+        
+        # # Запускаем инференс
+        # results = self.model(
+        #     str(image_path),
+        #     conf=self.conf_thresh,
+        #     # iou=self.iou_thresh,
+        #     device=self.device,
+        #     verbose=False
+        # )
+
+        # 1. Универсальное чтение изображения в numpy-массив
+        if isinstance(image_source, (str, Path)):
+            path = Path(image_source)
+            if not path.exists():
+                raise FileNotFoundError(f"Изображение не найдено: {path}")
+            img = cv2.imread(str(path))
+            source_info = str(path)
+        elif isinstance(image_source, io.BytesIO):
+            image_source.seek(0)
+            img_bytes = image_source.read()
+            img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            source_info = "<BytesIO buffer>"
+        elif isinstance(image_source, bytes):
+            img_array = np.frombuffer(image_source, dtype=np.uint8)
+            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            source_info = "<bytes>"
+        else:
+            raise TypeError(f"Неподдерживаемый тип источника: {type(image_source)}")
+    
+        if img is None:
+            raise ValueError(f"Не удалось декодировать изображение из: {source_info}")
+    
+        # 2. Проверка класса бутылки
         if self.bottle_class_id is None:
             logger.error("Класс бутылки не найден в модели. Укажите bottle_class_id при инициализации.")
             return None
-        
-        # Читаем изображение
-        img = cv2.imread(str(image_path))
-        if img is None:
-            raise ValueError(f"Не удалось прочитать изображение: {image_path}")
-        
+    
         img_h, img_w = img.shape[:2]
-        
-        # Запускаем инференс
+    
+        # 3. Инференс: передаём numpy-массив, а не путь/буфер
+        #    YOLOv8 умеет принимать np.ndarray напрямую
         results = self.model(
-            str(image_path),
+            img,
             conf=self.conf_thresh,
-            # iou=self.iou_thresh,
             device=self.device,
             verbose=False
         )
@@ -118,7 +165,7 @@ class BottleCropper:
         
         # Если бутылка не найдена
         if largest_bottle is None:
-            logger.info(f"Бутылка не найдена на изображении {image_path.name}")
+            logger.info(f"Бутылка не найдена на изображении")
             return None
         
         # Вырезаем САМУЮ БОЛЬШУЮ бутылку
