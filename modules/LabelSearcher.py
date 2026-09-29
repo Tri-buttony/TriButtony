@@ -56,7 +56,7 @@ class LabelSearcher:
         qdrant_url: str = "http://127.0.0.1:6333",
         collection: Optional[str] = None,
         device: Optional[str] = None,
-        conf_thresh: float = 0.35,
+        conf_thresh: float = 0.25,
     ):
         self.vectorizer_name = vectorizer
         self.vec = build_vectorizer(vectorizer, device)
