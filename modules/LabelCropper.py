@@ -20,7 +20,7 @@ class LabelCropper:
     def __init__(
         self,
         model_path: str = 'models/label_detector.pt',
-        conf_thresh: float = 0.35,
+        conf_thresh: float = 0.25,
         padding: float = 0.03,
         device: str = 'cpu',
         imgsz: int = 640,

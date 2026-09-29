@@ -6,8 +6,9 @@ label_dataset_builder.py. Лучшие веса копируются в models/l
 Запуск (из TriButtonsModels):
     python -m services.train_label_detector --data ./dataset/labels_yolo/data.yaml
 
-На GTX 1650 Ti (4 ГБ) yolo26s с imgsz=640 помещается при batch 8;
-при OOM уменьшайте --batch или берите yolo26n.pt.
+На GTX 1650 Ti (4 ГБ) yolo26s с imgsz=640 при batch 8 занимает всю видеопамять,
+Windows уходит в shared memory и эпоха идёт ~57 мин — берите --batch 4
+(или yolo26n.pt).
 """
 import argparse
 import logging
@@ -25,9 +26,10 @@ def main() -> None:
     ap.add_argument("--model", default="yolo26s.pt", help="предобученные COCO-веса для дообучения")
     ap.add_argument("--epochs", type=int, default=80)
     ap.add_argument("--imgsz", type=int, default=640)
-    ap.add_argument("--batch", type=int, default=8)
+    ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--device", default="0")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--cache", default="ram", help="ram | disk | none — кеш декодированных картинок")
     ap.add_argument("--project", default="./runs/label_detector")
     ap.add_argument("--name", default="train")
     ap.add_argument("--out", default="./models/label_detector.pt")
@@ -42,6 +44,7 @@ def main() -> None:
         batch=args.batch,
         device=args.device,
         workers=args.workers,
+        cache=False if args.cache == "none" else args.cache,
         project=str(Path(args.project).resolve()),
         name=args.name,
         single_cls=True,

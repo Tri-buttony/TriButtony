@@ -85,8 +85,11 @@ class CatalogClient:
         h1 = soup.select_one("h1")
         return Wine(slug=slug, url=url, name=h1.get_text(strip=True) if h1 else slug, image_url=img["src"])
 
+    def fetch_bytes(self, url: str) -> bytes:
+        return self._get(url).content
+
     def fetch_image(self, image_url: str) -> Image.Image:
-        return Image.open(io.BytesIO(self._get(image_url).content)).convert("RGB")
+        return Image.open(io.BytesIO(self.fetch_bytes(image_url))).convert("RGB")
 
 
 class WineIndex:

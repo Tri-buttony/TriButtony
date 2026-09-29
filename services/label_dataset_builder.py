@@ -50,7 +50,6 @@ API = "https://api.roboflow.com"
 DEFAULT_DATASETS = [
     "product-and-label-analysis/label-detection-u9cof",
     "vinokroboflow/wine-label-detection-ti2rc",
-    "inesctec-w4n0q/wine-labels-uptad",
 ]
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 RF_SUFFIX = re.compile(r"\.rf\.[0-9a-f]+$")
@@ -68,13 +67,23 @@ class Sample:
 
 # ---------- Roboflow ----------
 
+def http_get(url: str, params: Optional[dict] = None, **kw) -> requests.Response:
+    """GET, чьи ошибки не раскрывают ключ: api_key живёт в query-строке, а
+    requests печатает полный URL в тексте исключения и трейсбеке."""
+    try:
+        r = requests.get(url, params=params, **kw)
+        r.raise_for_status()
+        return r
+    except requests.RequestException as e:
+        status = e.response.status_code if e.response is not None else type(e).__name__
+        raise RuntimeError(f"GET {url.split('?', 1)[0]}: {status}") from None
+
 def resolve_version(spec: str, api_key: str) -> Tuple[str, str, int]:
     ref, _, ver = spec.partition(":")
     ws, proj = ref.split("/")
     if ver:
         return ws, proj, int(ver)
-    r = requests.get(f"{API}/{ws}/{proj}", params={"api_key": api_key}, timeout=60)
-    r.raise_for_status()
+    r = http_get(f"{API}/{ws}/{proj}", params={"api_key": api_key}, timeout=60)
     versions = r.json().get("versions") or []
     if not versions:
         raise RuntimeError(f"{ref}: нет опубликованных версий")
@@ -88,13 +97,11 @@ def download(spec: str, api_key: str, cache: Path, fmt: str) -> Path:
     if (dst / "data.yaml").exists():
         logger.info("%s v%d: уже скачан", spec, ver)
         return dst
-    r = requests.get(f"{API}/{ws}/{proj}/{ver}/{fmt}", params={"api_key": api_key}, timeout=120)
-    r.raise_for_status()
+    r = http_get(f"{API}/{ws}/{proj}/{ver}/{fmt}", params={"api_key": api_key}, timeout=120)
     link = r.json()["export"]["link"]
     logger.info("%s v%d: скачиваю экспорт %s", spec, ver, fmt)
     zpath = cache / f"{dst.name}.zip"
-    with requests.get(link, stream=True, timeout=600) as resp:
-        resp.raise_for_status()
+    with http_get(link, stream=True, timeout=600) as resp:
         with open(zpath, "wb") as f:
             for chunk in resp.iter_content(1 << 20):
                 f.write(chunk)
